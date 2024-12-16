@@ -1,0 +1,160 @@
+import time
+
+from library.api.functions_thingsboard import *
+import re
+import threading
+import random
+
+THINGSBOARD_URL = 'https://demo.thingsboard.io'
+token = "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJqLm5hdmFycm9AdW5pemFyLmVzIiwidXNlcklkIjoiMTNjMTYyYjAtNjA2Yy0xMWVmLTkxYWEtNGI1Yjg1N2JlZmJjIiwic2NvcGVzIjpbIlRFTkFOVF9BRE1JTiJdLCJzZXNzaW9uSWQiOiJjNmI3YjZjOC0xNWFmLTQ3NjItYWZkNi1lNmNjNzAyMTJmNGQiLCJleHAiOjE3MzU3MTUzNTcsImlzcyI6InRoaW5nc2JvYXJkLmlvIiwiaWF0IjoxNzMzOTE1MzU3LCJmaXJzdE5hbWUiOiJKZXN1cyIsImxhc3ROYW1lIjoiTmF2YXJybyBIZXJuYW5kZXoiLCJlbmFibGVkIjp0cnVlLCJwcml2YWN5UG9saWN5QWNjZXB0ZWQiOnRydWUsImlzUHVibGljIjpmYWxzZSwidGVuYW50SWQiOiIxMjEzZDljMC02MDZjLTExZWYtOTFhYS00YjViODU3YmVmYmMiLCJjdXN0b21lcklkIjoiMTM4MTQwMDAtMWRkMi0xMWIyLTgwODAtODA4MDgwODA4MDgwIn0.DaFx8t2KVbT0QtbLpsCyb0inlFhOIwsU_XtZCD1uhfckXL6ncmMHnlrhdEU98ER8KbTYPiLW6cuvi3K2i26zQw"
+user_id = "64571220-b796-11ef-b5a8-ed1aed9a651f"  # Dispatcher ID
+COORDINATES_FILE = '../../data/coordinates/coordinates_bike-route.txt'
+bike_1_id = 'ef0a6260-b795-11ef-b5a8-ed1aed9a651f'
+bike_2_id = "da23b020-b86e-11ef-b5a8-ed1aed9a651f"
+bike_3_id = "e2c83660-b86e-11ef-b5a8-ed1aed9a651f"
+OpenMapToken = "5b3ce3597851110001cf6248a378904d40394591b6ca59a22f8f1e00"
+
+
+#Coordinates
+coordinates_bike_1 = "(41.63782, -0.90388), (41.639578, -0.902350), (41.637392, -0.898048), (41.640595, -0.894968), (41.644732, -0.891152), (41.646906, -0.885775), (41.649640, -0.887586), (41.647739, -0.890564), (41.645105, -0.892645), (41.642501, -0.895011),  (41.643274, -0.896522), (41.642769, -0.896992), (41.644627, -0.900536), (41.644767, -0.900624), (41.643069, -0.905786), (41.640824, -0.904448), (41.639553, -0.902409), (41.63782, -0.90388)"
+coordinates_bike_2 = "(41.656699, -0.882398), (41.654244, -0.877520), (41.656117, -0.875977), (41.658370, -0.874627), (41.658719, -0.876949), (41.660644, -0.879712), (41.660956, -0.880645), 41.660499, -0.881128), (41.657853, -0.881626), (41.65755, -0.882447), (41.656699, -0.882398)"
+coordinates_bike_3 = "(41.663635, -0.873658), (41.663670, -0.875383), (41.664781, -0.875182), (41.666521, -0.875036), (41.666618, -0.880144), (41.663613, -0.880551), (41.663268, -0.880185), (41.661382, -0.875846), (41.661503, -0.875745), (41.660781, -0.873536), (41.663550, -0.871999),(41.663583, -0.872191), (41.663635, -0.873658)"
+
+
+def send_telemetry_device_simulation(sim_token, sim_telemetry, device_id):
+    headers = {
+        'Content-Type': 'application/json',
+        'X-Authorization': f'Bearer {sim_token}'
+    }
+
+    credentials_url = f'{THINGSBOARD_URL}/api/device/{device_id}/credentials'
+    response = requests.get(credentials_url, headers=headers)
+
+    if response.status_code == 200:
+        credentials_data = response.json()
+        device_token = credentials_data['credentialsId']
+
+    url = f'{THINGSBOARD_URL}/api/v1/{device_token}/telemetry'
+    response = requests.post(url, headers=headers, json=sim_telemetry)
+
+    if response.status_code == 200:
+        print(f"Telemetry data sent to asset '{bike_1_id}' successfully!")
+    else:
+        print(f"Failed to send telemetry data to asset '{bike_1_id}'")
+        print("Status library:", response.status_code)
+        print("Response:", response.text)
+
+formated_coordinates_bike_1 = re.findall(r'\(([^)]+)\)', coordinates_bike_1)
+formated_coordinates_bike_2 = re.findall(r'\(([^)]+)\)', coordinates_bike_2)
+formated_coordinates_bike_3 = re.findall(r'\(([^)]+)\)', coordinates_bike_3)
+
+attributes = {
+    "updateFrequency": 1000
+}
+
+#Bike 1 telemetry
+aggregated_duration_bike_1 = 0.0
+altitude_variation_bike_1 = 0
+total_capacity_bike_1 = 100
+current_capacity_bike_1 = 100 #Liters
+aggregated_distance_bike_1 = 0.0
+current_weight_bike_1 = 0.0
+current_volume_bike_1 = 15
+current_battery_bike_1 = 100
+last_check_bike_1 = "10/12/2024"
+current_biker_bike_1 = "Juan Dominguez"
+
+#Bike 2 telemetry
+aggregated_duration_bike_2 = 0.0
+altitude_variation_bike_2 = 0
+total_capacity_bike_2 = 80
+current_capacity_bike_2 = 65 #Liters
+aggregated_distance_bike_2 = 0.0
+current_weight_bike_2 = 0.0
+current_volume_bike_2 = 0
+current_battery_bike_2 = 82
+last_check_bike_2 = "02/12/2024"
+current_biker_bike_2 = "Rosana Gomez"
+
+#Bike 3 telemetry
+aggregated_duration_bike_3 = 0.0
+altitude_variation_bike_3 = 0
+total_capacity_bike_3 = 78
+current_capacity_bike_3 = 52 #Liters
+aggregated_distance_bike_3 = 0.0
+current_weight_bike_3 = 0.0
+current_volume_bike_3 = 4
+current_battery_bike_3 = 92
+last_check_bike_3 = "24/07/2024"
+current_biker_bike_3 = "Antonio Lopez"
+
+#coordinates = get_route_from_open_map(coordinates)
+
+def bike_simulation(coordinates, bike_id, altitude_variation, total_capacity, current_capacity, aggregated_duration, aggregated_distance, current_weight, current_volume, current_battery, last_check, current_biker):
+    while True:
+        for coordinate in coordinates:
+            lat, lon = map(float, coordinate.split(','))
+            lat = "{:.5f}".format(lat)
+            lon = "{:.5f}".format(lon)
+
+            update_frequency = get_update_frequency(bike_id, token) / 1000.
+
+            telemetry = {
+                "altitude": altitude_variation,
+                "Current Capacity": current_capacity,
+                "current trip duration": aggregated_duration,
+                "latitude": lat,
+                "longitude": lon,
+                "route distance": aggregated_distance,
+                "weight": current_weight,
+                "current volume": current_volume,
+                "current battery": current_battery,
+                "last check": last_check,
+                "biker": current_biker
+            }
+
+            #Modificamos las variables de simulacion
+            aggregated_distance += random.uniform(0.1, 1.5)
+            aggregated_duration += 1
+
+            if current_battery == 0:
+                current_battery = 100
+            else:
+                current_battery -=1
+
+            #Bajamos carga cada 3 segundos solo es positiva
+            if aggregated_duration % 3 == 0 and current_weight > 0:
+                current_weight -= 2.0
+                current_volume -= 1
+                current_capacity = ((total_capacity - current_volume) / total_capacity) * 100
+
+            #Subimos carga cada 5 segundos
+            if aggregated_duration % 5 == 0:
+                current_weight += 3.0
+                current_volume += 1
+                current_capacity = ((total_capacity - current_volume) / total_capacity) * 100
+
+            #Subimos altura cada 10 segundos si no supera los 15 metros
+            if aggregated_duration % 10 == 0 and altitude_variation < 15:
+                altitude_variation += 1
+
+            #Bajamos altura cada 15 segundos
+            if aggregated_duration % 15 == 0:
+                altitude_variation -=1
+
+            send_telemetry_device_simulation(token, telemetry, bike_id)
+            time.sleep(update_frequency)
+
+if __name__ == '__main__':
+    # Set shared attributes for the device
+    add_shared_attributes(token, bike_1_id, attributes)
+    add_shared_attributes(token, bike_2_id, attributes)
+    add_shared_attributes(token, bike_3_id, attributes)
+
+    t1 = threading.Thread(target=bike_simulation, args=(formated_coordinates_bike_1, bike_1_id, altitude_variation_bike_1, total_capacity_bike_1, current_capacity_bike_1, aggregated_duration_bike_1, aggregated_distance_bike_1, current_weight_bike_1, current_volume_bike_1, current_battery_bike_1, last_check_bike_1, current_biker_bike_1))
+    t2 = threading.Thread(target=bike_simulation, args=(formated_coordinates_bike_2, bike_2_id, altitude_variation_bike_2, total_capacity_bike_2, current_capacity_bike_2, aggregated_duration_bike_2, aggregated_distance_bike_2, current_weight_bike_2, current_volume_bike_2, current_battery_bike_2, last_check_bike_2, current_biker_bike_2))
+    t3 = threading.Thread(target=bike_simulation, args=(formated_coordinates_bike_3, bike_3_id, altitude_variation_bike_3, total_capacity_bike_3, current_capacity_bike_3, aggregated_duration_bike_3, aggregated_distance_bike_3, current_weight_bike_3, current_volume_bike_3, current_battery_bike_3, last_check_bike_3, current_biker_bike_3))
+
+    t1.start()
+    t2.start()
+    t3.start()
